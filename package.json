@@ -1,0 +1,36 @@
+{
+  "name": "tens",
+  "author": "andreavolpato",
+  "version": "1.0.0",
+  "keywords": ["pebble-app", "watchface"],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "Tens",
+    "uuid": "0f61229e-ee11-4e93-bc6c-eedaa39c93fb",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery"],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": ["configurable"],
+    "messageKeys": [
+      "RAINBOW",
+      "DARK_MODE",
+      "MISSING_STYLE",
+      "LAYOUT_4X6",
+      "HOURS_HORIZONTAL",
+      "FILL_INVERT",
+      "BIRTH_YEAR",
+      "BIRTH_MONTH",
+      "BIRTH_DAY",
+      "LIFE_SPAN_YEARS"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
