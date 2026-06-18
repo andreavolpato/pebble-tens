@@ -10,19 +10,19 @@ module.exports = [
         type: 'toggle',
         messageKey: 'RAINBOW',
         label: 'Rainbow (spectral grid)',
-        defaultValue: true,
+        defaultValue: false,
       },
       {
         type: 'toggle',
         messageKey: 'DARK_MODE',
         label: 'Dark mode (black background)',
-        defaultValue: true,
+        defaultValue: false,
       },
       {
         type: 'toggle',
         messageKey: 'LAYOUT_4X6',
         label: 'Layout 4x6 (3x2 cells, vs 6x4)',
-        defaultValue: true,
+        defaultValue: false,
       },
       {
         type: 'toggle',

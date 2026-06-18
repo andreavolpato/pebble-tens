@@ -8,6 +8,7 @@ static Layer *s_layer;
 static void layer_update(Layer *layer, GContext *ctx) {
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
+  if (!t) return;
   tens_render(ctx, layer_get_bounds(layer), t, tens_settings());
 }
 

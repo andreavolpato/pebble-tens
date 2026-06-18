@@ -106,7 +106,15 @@ static void render_grid(GContext *ctx, const TensLayout *L,
 }
 
 void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
-                 const TensSettings *cfg) {
+                 const TensSettings *cfg_in) {
+  // TEMP: rainbow disabled on-device while we isolate the boot-loop crash.
+  // The per-pixel spectral render is the prime suspect; force it off here
+  // regardless of the saved setting. Remove this override (and use cfg_in
+  // directly) once rainbow is reimplemented as a fast precomputed bitmap.
+  TensSettings cfg_local = *cfg_in;
+  cfg_local.rainbow = false;
+  const TensSettings *cfg = &cfg_local;
+
   bool dm = cfg->dark_mode;
   GColor bg = dm ? GColorBlack : GColorWhite;
   GColor ink = dm ? GColorWhite : GColorBlack;

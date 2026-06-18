@@ -7,9 +7,9 @@ static TensSettings s_settings;
 
 static void set_defaults(void) {
   s_settings = (TensSettings){
-      .rainbow = true,
-      .dark_mode = true,
-      .layout_4x6 = true,
+      .rainbow = false,
+      .dark_mode = false,
+      .layout_4x6 = false,  // "6x4" = 6 columns x 4 rows
       .hours_horizontal = true,
       .fill_invert = false,
       .missing_fill = false,

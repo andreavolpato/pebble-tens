@@ -58,7 +58,7 @@ class UserConfig:
     birth_day: int = 29  # 1-31
     # Appearance / behavior knobs (extend as the settings schema grows).
     palette_name: str = "default"
-    dark_mode: bool = True  # False=white bg/black boxes, True=black bg/white boxes
+    dark_mode: bool = False  # False=white bg/black boxes, True=black bg/white boxes
     life_span_years: int = 80  # for life-progress bars / span metrics
     # Hour-block layout. "4x6" = 3x2 cells (half-hour is a horizontal row),
     # "6x4" = 2x3 cells (half-hour is a vertical column). This drives the box
@@ -73,7 +73,7 @@ class UserConfig:
     missing_style: str = "outline"  # "outline" (border) | "fill" (light gray)
     # Rainbow: color the inked boxes/minute-lines by a spectral gradient that
     # spans the whole day grid (the ink acts as a mask over the gradient).
-    rainbow: bool = True
+    rainbow: bool = False
 
     def __post_init__(self) -> None:
         _check("birth_month", self.birth_month, 1, 12)

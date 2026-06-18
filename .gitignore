@@ -187,4 +187,5 @@ notes/
 node_modules/**
 
 .lock-waf_linux_build
+diag.sh
 

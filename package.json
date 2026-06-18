@@ -8,7 +8,7 @@
     "pebble-clay": "^1.0.4"
   },
   "pebble": {
-    "displayName": "Tens",
+    "displayName": "tens",
     "uuid": "0f61229e-ee11-4e93-bc6c-eedaa39c93fb",
     "sdkVersion": "3",
     "enableMultiJS": true,

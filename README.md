@@ -1,4 +1,5 @@
-keep track of the time visually, every ten pixel is a minute.
+keep track of the time visually.
+every ten pixel is a minute.
 every ten by ten block is ten minutes.
 144 blocks in one day.
 
