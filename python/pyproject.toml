@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tens"
+version = "0.1.0"
+description = "Python authoring and code-generation toolchain for the Tens Pebble watchface"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "andreavolpato" }]
+dependencies = [
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+tens-preview = "tens.preview:main"
+tens-export-headers = "tens.export_c:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tens"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["../tests/python"]

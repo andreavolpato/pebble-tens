@@ -1,0 +1,109 @@
+"""Semantic palette and Pebble-compatible color mapping.
+
+Scene operations reference *semantic* palette entries (e.g. ``"ink"``,
+``"accent"``) rather than arbitrary RGB. That keeps scenes easy to diff and
+lets the C exporter emit the matching ``GColor`` constants.
+
+Pebble Time 2 renders 64 colors (2 bits per channel). Each ``PaletteColor``
+records the desktop-preview RGB plus the Pebble ``GColor*`` name used in C.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class PaletteColor:
+    """A single semantic color.
+
+    ``rgb`` is used by the desktop preview. ``gcolor`` is the Pebble C
+    constant (e.g. ``GColorWhite``) emitted by the exporter.
+    """
+
+    rgb: tuple[int, int, int]
+    gcolor: str
+
+
+class Palette:
+    """Named collection of semantic colors."""
+
+    def __init__(self, name: str, colors: dict[str, PaletteColor]) -> None:
+        if "background" not in colors:
+            raise ValueError("palette must define a 'background' color")
+        self.name = name
+        self._colors = dict(colors)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._colors
+
+    def __getitem__(self, key: str) -> PaletteColor:
+        try:
+            return self._colors[key]
+        except KeyError as exc:
+            raise KeyError(f"unknown palette color {key!r}") from exc
+
+    def rgb(self, key: str) -> tuple[int, int, int]:
+        return self[key].rgb
+
+    def gcolor(self, key: str) -> str:
+        return self[key].gcolor
+
+    def names(self) -> list[str]:
+        return list(self._colors)
+
+
+# Fixed colors (independent of dark_mode).
+_BLACK = PaletteColor((0, 0, 0), "GColorBlack")
+_WHITE = PaletteColor((255, 255, 255), "GColorWhite")
+_DARK_GRAY = PaletteColor((85, 85, 85), "GColorDarkGray")
+_LIGHT_GRAY = PaletteColor((170, 170, 170), "GColorLightGray")
+_MONTH = PaletteColor((255, 170, 85), "GColorRajah")
+_YEAR = PaletteColor((85, 170, 255), "GColorPictonBlue")
+
+
+# --- Gradients ---------------------------------------------------------------
+# Only the life bar uses a gradient: a continuous "spectral" ramp with no
+# divisions. Stops are raw RGB; the preview dithers them down to the Pebble
+# 64-color gamut so intermediate colors still read as a smooth ramp.
+GRADIENTS = {
+    "spectral": [
+        (255, 0, 0),      # red
+        (255, 85, 0),    # orange
+        (255, 170, 0),    # yellow
+        (85, 170, 85),      # green
+        (85, 170, 170),  # light blue
+        (0, 85, 170),      # blue
+    ],
+}
+
+
+def gradient_stops(name: str) -> list[tuple[int, int, int]]:
+    try:
+        return GRADIENTS[name]
+    except KeyError as exc:
+        raise KeyError(f"unknown gradient {name!r}") from exc
+
+
+def resolve(name: str = "default", dark_mode: bool = False) -> Palette:
+    """Build the palette for the chosen background.
+
+    dark_mode=False -> white background, black ink (boxes).
+    dark_mode=True  -> black background, white ink.
+
+    "muted" is one contrasty gray used for placeholders, unfilled tracks /
+    outlines, and the month/year bars in rainbow mode: dark gray on a white
+    background, light gray on a black one (so it stays visible in both).
+    "month"/"year" are the fixed non-rainbow bar colors.
+    """
+    return Palette(
+        name,
+        {
+            "background": _BLACK if dark_mode else _WHITE,
+            "ink": _WHITE if dark_mode else _BLACK,
+            "muted": _DARK_GRAY if dark_mode else _LIGHT_GRAY,
+            "gray": _LIGHT_GRAY if dark_mode else _DARK_GRAY,
+            "month": _MONTH,
+            "year": _YEAR,
+        },
+    )
