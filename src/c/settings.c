@@ -42,22 +42,61 @@ void tens_settings_init(void) {
   set_defaults();
   // Only trust the persisted blob if it matches the current struct size. After
   // a struct-layout change the old blob would load garbage into our fields.
+  bool used_persist = false;
   if (persist_exists(SETTINGS_PERSIST_KEY) &&
       persist_get_size(SETTINGS_PERSIST_KEY) == (int)sizeof(s_settings)) {
     persist_read_data(SETTINGS_PERSIST_KEY, &s_settings, sizeof(s_settings));
+    used_persist = true;
   }
   sanitize();
+  APP_LOG(APP_LOG_LEVEL_INFO,
+          "settings init: persist=%d size=%d/%d birth=%d-%d-%d span=%d",
+          (int)used_persist, (int)persist_get_size(SETTINGS_PERSIST_KEY),
+          (int)sizeof(s_settings), s_settings.birth_year, s_settings.birth_month,
+          s_settings.birth_day, s_settings.life_span_years);
+}
+
+// Decode an integer tuple at the width PebbleKit JS actually sent it in. JS
+// numbers arrive in the smallest signed type that fits (1/2/4 bytes), so
+// reading value->int32 unconditionally pulls in adjacent bytes whenever fewer
+// were sent. On real hardware that corrupts the value (the emulator's JS shim
+// sends a full 4 bytes, which is why the bug only shows on device). Read by
+// t->length instead.
+// Parse a (possibly signed) base-10 integer from a C string. Self-contained so
+// we don't depend on the SDK's partial libc (no <stdlib.h>/atoi).
+static int32_t parse_int_str(const char *s) {
+  int32_t sign = 1;
+  if (*s == '-') { sign = -1; s++; }
+  else if (*s == '+') { s++; }
+  int32_t v = 0;
+  while (*s >= '0' && *s <= '9') {
+    v = v * 10 + (*s - '0');
+    s++;
+  }
+  return sign * v;
+}
+
+static int32_t tuple_to_int(const Tuple *t) {
+  // A number sent as a JS string arrives as a cstring; parse it rather than
+  // reinterpreting its bytes as an integer.
+  if (t->type == TUPLE_CSTRING) return parse_int_str(t->value->cstring);
+  switch (t->length) {
+    case 1: return (t->type == TUPLE_UINT) ? t->value->uint8 : t->value->int8;
+    case 2: return (t->type == TUPLE_UINT) ? t->value->uint16 : t->value->int16;
+    default:
+      return (t->type == TUPLE_UINT) ? (int32_t)t->value->uint32 : t->value->int32;
+  }
 }
 
 // Read a boolean tuple keyed by `key`; pkjs sends 1/0 as an int.
 static bool read_bool(DictionaryIterator *iter, uint32_t key, bool current) {
   Tuple *t = dict_find(iter, key);
-  return t ? (t->value->int32 != 0) : current;
+  return t ? (tuple_to_int(t) != 0) : current;
 }
 
 static int read_int(DictionaryIterator *iter, uint32_t key, int current) {
   Tuple *t = dict_find(iter, key);
-  return t ? (int)t->value->int32 : current;
+  return t ? (int)tuple_to_int(t) : current;
 }
 
 bool tens_settings_apply(DictionaryIterator *iter) {
@@ -82,6 +121,10 @@ bool tens_settings_apply(DictionaryIterator *iter) {
   s_settings.life_span_years =
       read_int(iter, MESSAGE_KEY_LIFE_SPAN_YEARS, s_settings.life_span_years);
   sanitize();
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "settings applied: birth=%d-%d-%d span=%d",
+          s_settings.birth_year, s_settings.birth_month, s_settings.birth_day,
+          s_settings.life_span_years);
 
   persist_write_data(SETTINGS_PERSIST_KEY, &s_settings, sizeof(s_settings));
   return memcmp(&prev, &s_settings, sizeof(s_settings)) != 0;

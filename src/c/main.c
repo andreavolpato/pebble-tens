@@ -9,7 +9,12 @@ static void layer_update(Layer *layer, GContext *ctx) {
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
   if (!t) return;
+  // Boot-loop breadcrumbs: if "render: end" never follows "render: begin" in
+  // `pebble logs`, the crash is inside tens_render (and the persisted settings
+  // logged by tens_settings_init tell us with which values).
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "render: begin");
   tens_render(ctx, layer_get_bounds(layer), t, tens_settings());
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "render: end");
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -20,6 +25,12 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (tens_settings_apply(iter)) {
     layer_mark_dirty(s_layer);
   }
+}
+
+// Without this, a too-small inbox or malformed message fails silently. Log it
+// so `pebble logs` shows the reason instead of settings just not applying.
+static void inbox_dropped(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "AppMessage inbox dropped: 0x%02x", (int)reason);
 }
 
 static void window_load(Window *window) {
@@ -43,7 +54,10 @@ static void init(void) {
 
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   app_message_register_inbox_received(inbox_received);
-  app_message_open(256, 64);
+  app_message_register_inbox_dropped(inbox_dropped);
+  // Use a generous inbox so the full settings dict can never be dropped for
+  // lack of room (the Clay config sends ~10 keys at once).
+  app_message_open(512, 64);
 }
 
 static void deinit(void) {
