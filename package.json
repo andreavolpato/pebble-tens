@@ -1,36 +1,43 @@
 {
-  "name": "tens",
-  "author": "andreavolpato",
-  "version": "1.0.0",
-  "keywords": ["pebble-app", "watchface"],
-  "private": true,
-  "dependencies": {
-    "pebble-clay": "^1.0.4"
-  },
-  "pebble": {
-    "displayName": "tens",
-    "uuid": "0f61229e-ee11-4e93-bc6c-eedaa39c93fb",
-    "sdkVersion": "3",
-    "enableMultiJS": true,
-    "targetPlatforms": ["emery"],
-    "watchapp": {
-      "watchface": true
+    "author": "andreavolpato",
+    "dependencies": {
+        "pebble-clay": "^1.0.4"
     },
-    "capabilities": ["configurable"],
-    "messageKeys": [
-      "RAINBOW",
-      "DARK_MODE",
-      "MISSING_STYLE",
-      "LAYOUT_4X6",
-      "HOURS_HORIZONTAL",
-      "FILL_INVERT",
-      "BIRTH_YEAR",
-      "BIRTH_MONTH",
-      "BIRTH_DAY",
-      "LIFE_SPAN_YEARS"
+    "keywords": [
+        "pebble-app",
+        "watchface"
     ],
-    "resources": {
-      "media": []
-    }
-  }
+    "name": "tens",
+    "pebble": {
+        "capabilities": [
+            "configurable"
+        ],
+        "displayName": "tens",
+        "enableMultiJS": true,
+        "messageKeys": [
+            "RAINBOW",
+            "DARK_MODE",
+            "MISSING_STYLE",
+            "LAYOUT_4X6",
+            "HOURS_HORIZONTAL",
+            "BIRTH_YEAR",
+            "BIRTH_MONTH",
+            "BIRTH_DAY",
+            "LIFE_SPAN_YEARS",
+            "FILL_INVERT[2]"
+        ],
+        "projectType": "native",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "emery"
+        ],
+        "uuid": "0f61229e-ee11-4e93-bc6c-eedaa39c93fb",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.0.2"
 }

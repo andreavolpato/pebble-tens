@@ -6,8 +6,8 @@
 
 // Bar colors when NOT in rainbow mode (background/ink/muted grays are chosen
 // from dark_mode directly in render.c).
-#define TENS_COLOR_MONTH GColorRajah
-#define TENS_COLOR_YEAR  GColorPictonBlue
+#define TENS_COLOR_MONTH GColorChromeYellow
+#define TENS_COLOR_YEAR  GColorVividCerulean
 
 // --- Spectral ramp (life bar + rainbow grid mask) ----------------------------
 #define TENS_SPECTRAL_STOPS 6
