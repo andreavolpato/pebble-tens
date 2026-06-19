@@ -1,5 +1,6 @@
 #include "settings.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define SETTINGS_PERSIST_KEY 1
 
@@ -80,6 +81,24 @@ static int32_t tuple_to_int(const Tuple *t) {
   // A number sent as a JS string arrives as a cstring; parse it rather than
   // reinterpreting its bytes as an integer.
   if (t->type == TUPLE_CSTRING) return parse_int_str(t->value->cstring);
+  switch (t->length) {
+    case 1: return (t->type == TUPLE_UINT) ? t->value->uint8 : t->value->int8;
+    case 2: return (t->type == TUPLE_UINT) ? t->value->uint16 : t->value->int16;
+    default:
+      return (t->type == TUPLE_UINT) ? (int32_t)t->value->uint32 : t->value->int32;
+  }
+}
+
+// Decode an integer tuple at the width PebbleKit JS actually sent it in. JS
+// numbers arrive in the smallest signed type that fits (1/2/4 bytes), so
+// reading value->int32 unconditionally pulls in adjacent bytes whenever fewer
+// were sent. On real hardware that corrupts the value (the emulator's JS shim
+// sends a full 4 bytes, which is why the bug only shows on device). Read by
+// t->length instead.
+static int32_t tuple_to_int(const Tuple *t) {
+  // A number sent as a JS string arrives as a cstring; parse it rather than
+  // reinterpreting its bytes as an integer.
+  if (t->type == TUPLE_CSTRING) return atoi(t->value->cstring);
   switch (t->length) {
     case 1: return (t->type == TUPLE_UINT) ? t->value->uint8 : t->value->int8;
     case 2: return (t->type == TUPLE_UINT) ? t->value->uint16 : t->value->int16;
