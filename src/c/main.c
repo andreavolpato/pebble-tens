@@ -9,12 +9,7 @@ static void layer_update(Layer *layer, GContext *ctx) {
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
   if (!t) return;
-  // Boot-loop breadcrumbs: if "render: end" never follows "render: begin" in
-  // `pebble logs`, the crash is inside tens_render (and the persisted settings
-  // logged by tens_settings_init tell us with which values).
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "render: begin");
   tens_render(ctx, layer_get_bounds(layer), t, tens_settings());
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "render: end");
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {

@@ -63,7 +63,7 @@ static void render_grid(GContext *ctx, const TensLayout *L,
       draw_ink_rect(ctx, cell, grid, cfg->rainbow, ink);
     } else if (i == d->ten_minute_index) {
       // Current box: muted missing part, then the completed-minute lines.
-      draw_missing(ctx, cell, cfg->missing_fill, muted);
+      draw_missing(ctx, cell, cfg->grid_missing_fill, muted);
       // Minute lines fill along the cell's long axis (same as the boxes).
       int count = d->minute_of_box;
       GRect fill;
@@ -106,9 +106,6 @@ void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
   // Subtle gray (low-contrast): placeholders and unfilled tracks/outlines.
   // Dark gray on black, light gray on white.
   GColor muted = dm ? GColorLightGray : GColorDarkGray;
-  // Contrasty gray: the month/year bars in rainbow mode. Light on black,
-  // dark on white.
-  GColor gray = dm ? GColorLightGray : GColorDarkGray;
 
   graphics_context_set_fill_color(ctx, bg);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
@@ -121,17 +118,24 @@ void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
 
   render_grid(ctx, &L, &d, cfg, ink, muted);
 
-  // Two bars: top half month | year, plus the long life bar. In rainbow mode
-  // month/year are the contrasty gray; otherwise their fixed colors. Life
-  // mirrors the boxes: spectral when rainbow, solid ink otherwise.
-  GColor month_color = cfg->rainbow ? gray : TENS_COLOR_MONTH;
-  GColor year_color = cfg->rainbow ? gray : TENS_COLOR_YEAR;
-  fill_solid_bar(ctx, tens_month_bar(&L), d.frac_month, month_color,
-                 cfg->missing_fill, muted);
-  fill_solid_bar(ctx, tens_year_bar(&L), d.frac_year, year_color,
-                 cfg->missing_fill, muted);
-
-  // TEMP: rainbow gradient removed — life bar always renders solid.
-  GRect life = tens_life_bar(&L);
-  fill_solid_bar(ctx, life, d.frac_life, ink, cfg->missing_fill, muted);
+  // Three bars in two fixed slots: the top row split into left | right, plus
+  // the long bottom bar. The chosen set decides which metric (and color) lands
+  // in each slot. Life uses ink; the calendar metrics use their fixed colors.
+  int top_left_frac, top_right_frac, bottom_frac;
+  GColor top_left_color, top_right_color, bottom_color;
+  if (cfg->bar_set == TENS_BARS_WEEK_MONTH_YEAR) {
+    top_left_frac = d.frac_week;   top_left_color = TENS_COLOR_WEEK;
+    top_right_frac = d.frac_month; top_right_color = TENS_COLOR_MONTH;
+    bottom_frac = d.frac_year;     bottom_color = TENS_COLOR_YEAR;
+  } else {
+    top_left_frac = d.frac_month;  top_left_color = TENS_COLOR_MONTH;
+    top_right_frac = d.frac_year;  top_right_color = TENS_COLOR_YEAR;
+    bottom_frac = d.frac_life;     bottom_color = ink;
+  }
+  fill_solid_bar(ctx, tens_month_bar(&L), top_left_frac, top_left_color,
+                 cfg->bars_missing_fill, muted);
+  fill_solid_bar(ctx, tens_year_bar(&L), top_right_frac, top_right_color,
+                 cfg->bars_missing_fill, muted);
+  fill_solid_bar(ctx, tens_life_bar(&L), bottom_frac, bottom_color,
+                 cfg->bars_missing_fill, muted);
 }

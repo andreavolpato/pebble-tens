@@ -38,9 +38,25 @@ module.exports = [
       },
       {
         type: 'toggle',
-        messageKey: 'MISSING_STYLE',
-        label: 'Fill missing parts (vs outline)',
+        messageKey: 'BARS_MISSING_STYLE',
+        label: 'Bars: fill missing parts (vs outline)',
+        defaultValue: true,
+      },
+      {
+        type: 'toggle',
+        messageKey: 'GRID_MISSING_STYLE',
+        label: 'Current 10-min block: fill missing parts (vs outline)',
         defaultValue: false,
+      },
+      {
+        type: 'select',
+        messageKey: 'BAR_SET',
+        label: 'Bars show',
+        defaultValue: 0,
+        options: [
+          { label: 'Month / Year / Life', value: 0 },
+          { label: 'Week / Month / Year', value: 1 },
+        ],
       },
     ],
   },

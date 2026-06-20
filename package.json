@@ -17,14 +17,16 @@
         "messageKeys": [
             "RAINBOW",
             "DARK_MODE",
-            "MISSING_STYLE",
+            "BARS_MISSING_STYLE",
+            "GRID_MISSING_STYLE",
+            "BAR_SET",
             "LAYOUT_4X6",
             "HOURS_HORIZONTAL",
             "BIRTH_YEAR",
             "BIRTH_MONTH",
             "BIRTH_DAY",
             "LIFE_SPAN_YEARS",
-            "FILL_INVERT[2]"
+            "FILL_INVERT"
         ],
         "projectType": "native",
         "resources": {

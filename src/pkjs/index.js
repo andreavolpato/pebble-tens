@@ -9,7 +9,8 @@ var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 // pebble-clay prepareSettingsForAppMessage), so look up the numeric id rather
 // than a "MESSAGE_KEY_" name string.
 var messageKeys = require('message_keys');
-var NUMERIC_KEYS = ['BIRTH_YEAR', 'BIRTH_MONTH', 'BIRTH_DAY', 'LIFE_SPAN_YEARS'];
+var NUMERIC_KEYS = ['BIRTH_YEAR', 'BIRTH_MONTH', 'BIRTH_DAY', 'LIFE_SPAN_YEARS',
+                    'BAR_SET'];
 
 Pebble.addEventListener('showConfiguration', function (e) {
   Pebble.openURL(clay.generateUrl());

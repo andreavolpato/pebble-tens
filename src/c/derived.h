@@ -8,6 +8,7 @@
 typedef struct {
   int ten_minute_index;  // 0..143 (current ten-minute box)
   int minute_of_box;     // 0..9 (completed minutes inside the current box)
+  int frac_week;         // permille through the week (Mon -> Sun)
   int frac_month;        // permille through the month
   int frac_year;         // permille through the year (Jan 1 -> Dec 31)
   int frac_life;         // permille through the configured lifespan (clamped)

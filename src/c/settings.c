@@ -1,8 +1,10 @@
 #include "settings.h"
 #include <string.h>
-#include <stdlib.h>
 
-#define SETTINGS_PERSIST_KEY 1
+// Bumped to 2 when missing_fill split into bars_/grid_missing_fill: the struct
+// stays the same size, so the size guard alone can't tell old blobs apart —
+// the new key forces a clean default load after the update.
+#define SETTINGS_PERSIST_KEY 2
 
 static TensSettings s_settings;
 
@@ -13,7 +15,9 @@ static void set_defaults(void) {
       .layout_4x6 = false,  // "6x4" = 6 columns x 4 rows
       .hours_horizontal = true,
       .fill_invert = false,
-      .missing_fill = false,
+      .bars_missing_fill = true,   // bars: filled track by default
+      .grid_missing_fill = false,  // current block: outline by default
+      .bar_set = TENS_BARS_MONTH_YEAR_LIFE,
       .birth_year = 1990,
       .birth_month = 4,
       .birth_day = 12,
@@ -37,32 +41,21 @@ static void sanitize(void) {
   s_settings.birth_month = clampi(s_settings.birth_month, 1, 12);
   s_settings.birth_day = clampi(s_settings.birth_day, 1, 31);
   s_settings.life_span_years = clampi(s_settings.life_span_years, 1, 200);
+  s_settings.bar_set = clampi(s_settings.bar_set, TENS_BARS_MONTH_YEAR_LIFE,
+                              TENS_BARS_WEEK_MONTH_YEAR);
 }
 
 void tens_settings_init(void) {
   set_defaults();
   // Only trust the persisted blob if it matches the current struct size. After
   // a struct-layout change the old blob would load garbage into our fields.
-  bool used_persist = false;
   if (persist_exists(SETTINGS_PERSIST_KEY) &&
       persist_get_size(SETTINGS_PERSIST_KEY) == (int)sizeof(s_settings)) {
     persist_read_data(SETTINGS_PERSIST_KEY, &s_settings, sizeof(s_settings));
-    used_persist = true;
   }
   sanitize();
-  APP_LOG(APP_LOG_LEVEL_INFO,
-          "settings init: persist=%d size=%d/%d birth=%d-%d-%d span=%d",
-          (int)used_persist, (int)persist_get_size(SETTINGS_PERSIST_KEY),
-          (int)sizeof(s_settings), s_settings.birth_year, s_settings.birth_month,
-          s_settings.birth_day, s_settings.life_span_years);
 }
 
-// Decode an integer tuple at the width PebbleKit JS actually sent it in. JS
-// numbers arrive in the smallest signed type that fits (1/2/4 bytes), so
-// reading value->int32 unconditionally pulls in adjacent bytes whenever fewer
-// were sent. On real hardware that corrupts the value (the emulator's JS shim
-// sends a full 4 bytes, which is why the bug only shows on device). Read by
-// t->length instead.
 // Parse a (possibly signed) base-10 integer from a C string. Self-contained so
 // we don't depend on the SDK's partial libc (no <stdlib.h>/atoi).
 static int32_t parse_int_str(const char *s) {
@@ -77,28 +70,15 @@ static int32_t parse_int_str(const char *s) {
   return sign * v;
 }
 
-static int32_t tuple_to_int(const Tuple *t) {
-  // A number sent as a JS string arrives as a cstring; parse it rather than
-  // reinterpreting its bytes as an integer.
-  if (t->type == TUPLE_CSTRING) return parse_int_str(t->value->cstring);
-  switch (t->length) {
-    case 1: return (t->type == TUPLE_UINT) ? t->value->uint8 : t->value->int8;
-    case 2: return (t->type == TUPLE_UINT) ? t->value->uint16 : t->value->int16;
-    default:
-      return (t->type == TUPLE_UINT) ? (int32_t)t->value->uint32 : t->value->int32;
-  }
-}
-
 // Decode an integer tuple at the width PebbleKit JS actually sent it in. JS
 // numbers arrive in the smallest signed type that fits (1/2/4 bytes), so
 // reading value->int32 unconditionally pulls in adjacent bytes whenever fewer
 // were sent. On real hardware that corrupts the value (the emulator's JS shim
 // sends a full 4 bytes, which is why the bug only shows on device). Read by
-// t->length instead.
+// t->length instead. A number sent as a JS string arrives as a cstring, so
+// parse it rather than reinterpreting its bytes as an integer.
 static int32_t tuple_to_int(const Tuple *t) {
-  // A number sent as a JS string arrives as a cstring; parse it rather than
-  // reinterpreting its bytes as an integer.
-  if (t->type == TUPLE_CSTRING) return atoi(t->value->cstring);
+  if (t->type == TUPLE_CSTRING) return parse_int_str(t->value->cstring);
   switch (t->length) {
     case 1: return (t->type == TUPLE_UINT) ? t->value->uint8 : t->value->int8;
     case 2: return (t->type == TUPLE_UINT) ? t->value->uint16 : t->value->int16;
@@ -129,8 +109,11 @@ bool tens_settings_apply(DictionaryIterator *iter) {
       read_bool(iter, MESSAGE_KEY_HOURS_HORIZONTAL, s_settings.hours_horizontal);
   s_settings.fill_invert =
       read_bool(iter, MESSAGE_KEY_FILL_INVERT, s_settings.fill_invert);
-  s_settings.missing_fill =
-      read_bool(iter, MESSAGE_KEY_MISSING_STYLE, s_settings.missing_fill);
+  s_settings.bars_missing_fill =
+      read_bool(iter, MESSAGE_KEY_BARS_MISSING_STYLE, s_settings.bars_missing_fill);
+  s_settings.grid_missing_fill =
+      read_bool(iter, MESSAGE_KEY_GRID_MISSING_STYLE, s_settings.grid_missing_fill);
+  s_settings.bar_set = read_int(iter, MESSAGE_KEY_BAR_SET, s_settings.bar_set);
   s_settings.birth_year =
       read_int(iter, MESSAGE_KEY_BIRTH_YEAR, s_settings.birth_year);
   s_settings.birth_month =
@@ -140,10 +123,6 @@ bool tens_settings_apply(DictionaryIterator *iter) {
   s_settings.life_span_years =
       read_int(iter, MESSAGE_KEY_LIFE_SPAN_YEARS, s_settings.life_span_years);
   sanitize();
-
-  APP_LOG(APP_LOG_LEVEL_INFO, "settings applied: birth=%d-%d-%d span=%d",
-          s_settings.birth_year, s_settings.birth_month, s_settings.birth_day,
-          s_settings.life_span_years);
 
   persist_write_data(SETTINGS_PERSIST_KEY, &s_settings, sizeof(s_settings));
   return memcmp(&prev, &s_settings, sizeof(s_settings)) != 0;

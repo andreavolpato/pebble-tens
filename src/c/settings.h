@@ -3,6 +3,12 @@
 #pragma once
 #include <pebble.h>
 
+// Which three metrics the bars show.
+enum {
+  TENS_BARS_MONTH_YEAR_LIFE = 0,  // month | year, then life
+  TENS_BARS_WEEK_MONTH_YEAR = 1,  // week  | month, then year
+};
+
 typedef struct {
   bool rainbow;          // spectral gradient mask over the inked grid/life bar
   bool dark_mode;        // true=black background/white ink, false=white/black
@@ -11,7 +17,11 @@ typedef struct {
   bool hours_horizontal; // hour-block order: true=row-major, false=column-major
   bool fill_invert;      // horizontal fill: false=from left, true=from right
                          // vertical fill:   false=from top,  true=from bottom
-  bool missing_fill;     // missing part: false=outline, true=muted fill
+  bool bars_missing_fill; // month/year/life bars' missing part:
+                          //   false=outline, true=muted fill
+  bool grid_missing_fill; // current 10-min block's missing part:
+                          //   false=outline, true=muted fill
+  int bar_set;           // TENS_BARS_* : which trio the three bars show
   int birth_year;
   int birth_month;       // 1..12
   int birth_day;         // 1..31
