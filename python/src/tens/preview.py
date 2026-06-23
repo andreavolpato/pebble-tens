@@ -62,26 +62,42 @@ def _lerp_stops(stops: list[tuple[int, int, int]], t: float) -> tuple[int, int, 
     return tuple(round(a[c] + (b[c] - a[c]) * f) for c in range(3))
 
 
-def _render_gradient(op: Gradient) -> Image.Image:
-    """Build a smooth gradient then dither it to the Pebble gamut.
+def dither_gradient(
+    width: int,
+    height: int,
+    stops: list[tuple[int, int, int]],
+    axis: str = "h",
+    span: int = 0,
+    offset: int = 0,
+) -> Image.Image:
+    """Build a smooth multi-stop gradient, then Floyd-Steinberg dither it to the
+    Pebble 64-color gamut.
 
-    The ramp is mapped over ``op.span`` pixels (default ``op.w``); only the
-    first ``op.w`` are drawn, so a partially-filled bar shows the left slice of
-    the full-span ramp rather than a compressed copy of it.
+    The ramp is mapped over ``span`` pixels (default ``width`` for "h",
+    ``height`` for "v"); only ``width``x``height`` are drawn starting at
+    ``offset``, so a window of a larger ramp shows the right slice rather than a
+    compressed copy. Shared by the preview (per-op) and the resource baker
+    (whole-grid), so both consume the exact same dithering.
     """
-    stops = gradient_stops(op.gradient)
-    grad = Image.new("RGB", (op.w, op.h))
+    grad = Image.new("RGB", (width, height))
     gd = ImageDraw.Draw(grad)
-    if op.axis == "v":
-        n = max(1, (op.span or op.h) - 1)
-        for j in range(op.h):
-            gd.line([(0, j), (op.w - 1, j)], fill=_lerp_stops(stops, (op.offset + j) / n))
+    if axis == "v":
+        n = max(1, (span or height) - 1)
+        for j in range(height):
+            gd.line([(0, j), (width - 1, j)], fill=_lerp_stops(stops, (offset + j) / n))
     else:
-        n = max(1, (op.span or op.w) - 1)
-        for i in range(op.w):
-            gd.line([(i, 0), (i, op.h - 1)], fill=_lerp_stops(stops, (op.offset + i) / n))
+        n = max(1, (span or width) - 1)
+        for i in range(width):
+            gd.line([(i, 0), (i, height - 1)], fill=_lerp_stops(stops, (offset + i) / n))
     dithered = grad.quantize(palette=_PEBBLE_PALETTE, dither=Image.Dither.FLOYDSTEINBERG)
     return dithered.convert("RGB")
+
+
+def _render_gradient(op: Gradient) -> Image.Image:
+    """Dither the gradient op to the Pebble gamut (see ``dither_gradient``)."""
+    return dither_gradient(
+        op.w, op.h, gradient_stops(op.gradient), op.axis, op.span, op.offset
+    )
 
 
 def render_image(scene: Scene) -> Image.Image:

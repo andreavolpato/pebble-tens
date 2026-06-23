@@ -85,10 +85,14 @@ portal.
 
 - **emery only.** Geometry is hardcoded to 200×228. Supporting basalt/diorite/
   chalk needs a responsive layout (scale `BOX`/gaps, or letterbox).
-- **Rainbow/life dithering.** On device the spectral ramp is drawn per-column
-  with nearest-color quantization (no Floyd–Steinberg), so it bands more than
-  the Python preview. To match the preview, precompute dithered bitmaps from
-  the same gradient and bundle them as resources.
+- **Rainbow/life dithering.** The spectral ramp is precomputed: `python
+  scripts/bake_gradients.py` Floyd–Steinberg-dithers it to the Pebble gamut and
+  writes one day-grid-sized bitmap per layout (`resources/images/spectral_4x6.png`,
+  `spectral_6x4.png`, declared in `package.json`). On device `render.c` blits
+  slices of the matching bitmap for the inked grid and the life bar in rainbow
+  mode (no per-pixel color math). Rerun the baker and rebuild if you retune the
+  `spectral` stops in `palette.py`. The desktop preview still dithers per-op, so
+  it can differ slightly from the device's single whole-grid bake.
 - **Palette parity.** `palette.h` hardcodes the current Python palette values.
   If you retune colors in `python/src/tens/palette.py`, mirror them here.
 ```

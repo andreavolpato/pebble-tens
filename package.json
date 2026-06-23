@@ -30,7 +30,20 @@
         ],
         "projectType": "native",
         "resources": {
-            "media": []
+            "media": [
+                {
+                    "type": "bitmap",
+                    "name": "SPECTRAL_4X6",
+                    "file": "images/spectral_4x6.png",
+                    "targetPlatforms": ["emery"]
+                },
+                {
+                    "type": "bitmap",
+                    "name": "SPECTRAL_6X4",
+                    "file": "images/spectral_6x4.png",
+                    "targetPlatforms": ["emery"]
+                }
+            ]
         },
         "sdkVersion": "3",
         "targetPlatforms": [

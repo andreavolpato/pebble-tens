@@ -10,15 +10,33 @@ static int clampi(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }
 
-// Fill a rect with solid ink.
-// TEMP: the grid-wide spectral ramp (rainbow) path has been removed while we
-// isolate the boot-loop crash; this always fills solid. The `grid`/`rainbow`
-// params are kept so callers and the signature stay stable for an easy revert.
-static void draw_ink_rect(GContext *ctx, GRect r, GRect grid, bool rainbow,
+// Blit the slice of a baked spectral bitmap that lines up with `dst`.
+// The bitmap covers the whole day-grid, so a cell at (x, y) samples gradient
+// pixel (x - src_origin.x, y - src_origin.y). For the grid, `src_origin` is the
+// grid origin; the life bar sits below the grid and passes its own origin so it
+// samples the bitmap's top rows (the ramp is horizontal, so any band works).
+static void draw_gradient_rect(GContext *ctx, GRect dst, GBitmap *grad,
+                               GPoint src_origin) {
+  if (!grad || dst.size.w <= 0 || dst.size.h <= 0) return;
+  GRect src = GRect(dst.origin.x - src_origin.x, dst.origin.y - src_origin.y,
+                    dst.size.w, dst.size.h);
+  // Shares the parent's pixel data (no copy); just retargets the draw window.
+  GBitmap *sub = gbitmap_create_as_sub_bitmap(grad, src);
+  if (!sub) return;
+  graphics_draw_bitmap_in_rect(ctx, sub, dst);
+  gbitmap_destroy(sub);
+}
+
+// Fill a grid rect: a slice of the precomputed spectral gradient when rainbow
+// is on (`grad` non-NULL), otherwise solid ink. The gradient image is the
+// day-grid, so `grid.origin` aligns the slice to this cell's position.
+static void draw_ink_rect(GContext *ctx, GRect r, GRect grid, GBitmap *grad,
                           GColor ink) {
-  (void)grid;
-  (void)rainbow;
   if (r.size.w <= 0 || r.size.h <= 0) return;
+  if (grad) {
+    draw_gradient_rect(ctx, r, grad, grid.origin);
+    return;
+  }
   graphics_context_set_fill_color(ctx, ink);
   graphics_fill_rect(ctx, r, 0, GCornerNone);
 }
@@ -48,19 +66,29 @@ static void fill_solid_bar(GContext *ctx, GRect bar, int progress, GColor color,
   }
 }
 
-// TEMP: the rainbow life-bar gradient (fill_gradient_bar) has been removed
-// while we isolate the boot-loop crash. The life bar now always renders solid
-// via fill_solid_bar(). Restore the per-pixel spectral gradient here once
-// rainbow is reimplemented as a fast precomputed bitmap.
+// A spectral-gradient bar filled up to progress over a muted track. The baked
+// gradient image is the day-grid and the life bar is the same width and left
+// edge as the grid, so the bar's colors align column-for-column with the grid;
+// we sample the bitmap's top rows (src origin == bar origin -> src y 0).
+static void fill_gradient_bar(GContext *ctx, GRect bar, int progress,
+                              GBitmap *grad, bool missing_fill, GColor muted) {
+  draw_missing(ctx, bar, missing_fill, muted);
+  progress = clampi(progress, 0, 1000);
+  int fill_w = bar.size.w * progress / 1000;
+  if (fill_w > 0) {
+    GRect fill = GRect(bar.origin.x, bar.origin.y, fill_w, bar.size.h);
+    draw_gradient_rect(ctx, fill, grad, bar.origin);
+  }
+}
 
 static void render_grid(GContext *ctx, const TensLayout *L,
                         const TensDerived *d, const TensSettings *cfg,
-                        GColor ink, GColor muted) {
+                        GColor ink, GColor muted, GBitmap *grad) {
   GRect grid = tens_day_rect(L);
   for (int i = 0; i < 144; i++) {
     GRect cell = tens_ten_minute_cell(L, i);
     if (i < d->ten_minute_index) {
-      draw_ink_rect(ctx, cell, grid, cfg->rainbow, ink);
+      draw_ink_rect(ctx, cell, grid, grad, ink);
     } else if (i == d->ten_minute_index) {
       // Current box: muted missing part, then the completed-minute lines.
       draw_missing(ctx, cell, cfg->grid_missing_fill, muted);
@@ -76,7 +104,7 @@ static void render_grid(GContext *ctx, const TensLayout *L,
         int y = cfg->fill_invert ? (rect_bottom(cell) - rows) : cell.origin.y;
         fill = GRect(cell.origin.x, y, cell.size.w, rows);
       }
-      draw_ink_rect(ctx, fill, grid, cfg->rainbow, ink);
+      draw_ink_rect(ctx, fill, grid, grad, ink);
     } else {
       // Future box: a centered 4x4 muted dot placeholder.
       int d4 = 4;
@@ -89,17 +117,7 @@ static void render_grid(GContext *ctx, const TensLayout *L,
 }
 
 void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
-                 const TensSettings *cfg_in) {
-  // TEMP: rainbow disabled on-device while we isolate the boot-loop crash.
-  // The per-pixel spectral render (the prime suspect) has been stripped from
-  // draw_ink_rect and the life bar; this override also forces the flag off so
-  // the month/year bars keep their fixed colors regardless of the saved
-  // setting. Remove this override (and use cfg_in directly) once rainbow is
-  // reimplemented as a fast precomputed bitmap.
-  TensSettings cfg_local = *cfg_in;
-  cfg_local.rainbow = false;
-  const TensSettings *cfg = &cfg_local;
-
+                 const TensSettings *cfg) {
   bool dm = cfg->dark_mode;
   GColor bg = dm ? GColorBlack : GColorWhite;
   GColor ink = dm ? GColorWhite : GColorBlack;
@@ -116,13 +134,25 @@ void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
   TensLayout L;
   tens_layout_init(&L, cfg->layout_4x6, cfg->hours_horizontal);
 
-  render_grid(ctx, &L, &d, cfg, ink, muted);
+  // In rainbow mode the inked grid (and the life bar) reveal a precomputed,
+  // dithered spectral gradient instead of solid ink. The image is the day-grid
+  // sized for this layout; `grad` stays NULL (solid fallback) if the resource
+  // can't be loaded. Loaded once here and freed at the end of the render.
+  GBitmap *grad = NULL;
+  if (cfg->rainbow) {
+    grad = gbitmap_create_with_resource(
+        cfg->layout_4x6 ? RESOURCE_ID_SPECTRAL_4X6 : RESOURCE_ID_SPECTRAL_6X4);
+  }
+
+  render_grid(ctx, &L, &d, cfg, ink, muted, grad);
 
   // Three bars in two fixed slots: the top row split into left | right, plus
   // the long bottom bar. The chosen set decides which metric (and color) lands
-  // in each slot. Life uses ink; the calendar metrics use their fixed colors.
+  // in each slot. Life uses ink (or the spectral gradient in rainbow mode); the
+  // calendar metrics use their fixed colors.
   int top_left_frac, top_right_frac, bottom_frac;
   GColor top_left_color, top_right_color, bottom_color;
+  bool bottom_is_life = (cfg->bar_set != TENS_BARS_WEEK_MONTH_YEAR);
   if (cfg->bar_set == TENS_BARS_WEEK_MONTH_YEAR) {
     top_left_frac = d.frac_week;   top_left_color = TENS_COLOR_WEEK;
     top_right_frac = d.frac_month; top_right_color = TENS_COLOR_MONTH;
@@ -136,6 +166,13 @@ void tens_render(GContext *ctx, GRect bounds, const struct tm *now,
                  cfg->bars_missing_fill, muted);
   fill_solid_bar(ctx, tens_year_bar(&L), top_right_frac, top_right_color,
                  cfg->bars_missing_fill, muted);
-  fill_solid_bar(ctx, tens_life_bar(&L), bottom_frac, bottom_color,
-                 cfg->bars_missing_fill, muted);
+  if (bottom_is_life && grad) {
+    fill_gradient_bar(ctx, tens_life_bar(&L), bottom_frac, grad,
+                      cfg->bars_missing_fill, muted);
+  } else {
+    fill_solid_bar(ctx, tens_life_bar(&L), bottom_frac, bottom_color,
+                   cfg->bars_missing_fill, muted);
+  }
+
+  if (grad) gbitmap_destroy(grad);
 }
